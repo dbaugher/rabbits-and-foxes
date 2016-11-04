@@ -64,7 +64,7 @@ plt.show()
 # In[3]:
 
 x_max = y_max = 9.0
-N = M = 10
+N = M = 50
 dx = x_max / (N-1)
 dy = y_max / (M-1)
 xgrid = np.linspace(0,x_max,N)
@@ -74,21 +74,27 @@ assert dx == xgrid[1]
 diffusivity_rabbits = 1.0e-3
 diffusivity_foxes = 1.0e-3
 
-concentrations = np.ones((2,N,M))
+concentrations = np.ones((2,N,M)) 
+concentrations += 0.5 * np.abs(np.random.randn(2,N,M))
 concentrations[0] *= 400
 concentrations[1] *= 200
 concentrations[1,N//2:,M//2:] *= 2.0 # double foxes in top corner 
 concentrations[0,3,3] = 0 # a dead spot of rabbits
-concentrations[1,8,8] = 0 # a dead spot of foxes
+concentrations[1,7,7] = 0 # a dead spot of foxes
+concentrations[0,-1,-5] = 800 # a load of rabbits near one corner
 
 rabbits = concentrations[0]
 foxes = concentrations[1]
 
 plt.subplot(2,2,1)
-sns.heatmap(rabbits, square=True, vmin=0, vmax=500)
+xticklabels = [0] + ['']*(N-2) + [x_max]
+yticklabels = [0] + ['']*(M-2) + [y_max]
+sns.heatmap(rabbits, vmin=0, vmax=500, square=True,
+            xticklabels=xticklabels, yticklabels=yticklabels)
 plt.title('Rabbits')
 plt.subplot(2,2,2)
-sns.heatmap(foxes, square=True ,vmin=0, vmax=3000)
+sns.heatmap(foxes, vmin=0, vmax=3000, square=True,
+            xticklabels=xticklabels, yticklabels=yticklabels)
 plt.title('Foxes')
 plt.tight_layout()
 plt.show()
@@ -116,18 +122,20 @@ rate_foxes[1:-1,:] += diffusivity_foxes * d2cdx2[1] / (dx*dx)
 rate_foxes[:,1:-1] += diffusivity_foxes * d2cdy2[1] / (dy*dy)
 
 plt.subplot(2,2,1)
-sns.heatmap(foxes, square=True)
-plt.title('Foxes')
-plt.subplot(2,2,2)
-sns.heatmap(rate_foxes, center=0, square=True)
-plt.title('Rate Foxes')
-plt.subplot(2,2,3)
 sns.heatmap(rabbits, square=True)
 plt.title('Rabbits')
-plt.subplot(2,2,4)
+plt.subplot(2,2,3)
 sns.heatmap(rate_rabbits, center=0, square=True)
 plt.title('Rate Rabbits')
 plt.tight_layout()
+
+plt.subplot(2,2,2)
+sns.heatmap(foxes, square=True)
+plt.title('Foxes')
+plt.subplot(2,2,4)
+sns.heatmap(rate_foxes, center=0, square=True)
+plt.title('Rate Foxes')
+
 plt.show()
 
 rates = np.stack((rate_rabbits, rate_foxes))
@@ -136,7 +144,7 @@ print(rates)
 
 # And now the differential equation version
 
-# In[5]:
+# In[26]:
 
 def rates(concentrations_vector, time):
     """
@@ -158,7 +166,7 @@ def rates(concentrations_vector, time):
     rates = np.stack((rate_rabbits, rate_foxes))
     return rates.reshape(-1)
 
-end_time = 2400.
+end_time = 4800.
 concentrations_vector  = concentrations.reshape(-1)
 times = np.arange(0, end_time)
 initial_conditions = concentrations_vector
@@ -169,7 +177,7 @@ results = result.reshape(-1,2,N,M)
 print(results.shape)
 
 
-# In[6]:
+# In[27]:
 
 rabbits_origin = results[:,0,0,0]
 foxes_origin = results[:,1,0,0]
@@ -188,23 +196,25 @@ plt.tight_layout()
 plt.show()
 
 
-# In[7]:
+# In[28]:
 
 print('At end time t={} days'.format(end_time))
 rabbits = results[-1,0]
 foxes = results[-1,1]
 fig = plt.figure()
 plt.subplot(2,2,1)
-sns.heatmap(rabbits, square=True,vmin=0,vmax=500)
+sns.heatmap(rabbits, vmin=0, vmax=500, square=True,
+           xticklabels=xticklabels, yticklabels=yticklabels)
 plt.title('Rabbits')
 plt.subplot(2,2,2)
-sns.heatmap(foxes, square=True, vmin=0,vmax=3000)
+sns.heatmap(foxes, vmin=0, vmax=3000, square=True,
+           xticklabels=xticklabels, yticklabels=yticklabels)
 plt.title('Foxes')
 plt.tight_layout()
 plt.show()
 
 
-# In[16]:
+# In[ ]:
 
 from matplotlib import animation
 import matplotlib
@@ -213,26 +223,73 @@ fig = plt.figure()
 ax1 = plt.subplot(1,2,1)
 ax2 = plt.subplot(1,2,2)
 timestamp = fig.text(0.45,0.1,'timestamp')
-frames = 120
+frames = 240
 
 def animate(i):
     timestep = i * len(times)//(frames)
     rabbits = results[timestep,0]
     foxes = results[timestep,1]
-    sns.heatmap(rabbits, square=True, vmin=0,vmax=500, ax=ax1, cbar=None)
+    sns.heatmap(rabbits, square=True, vmin=0, vmax=500, ax=ax1, cbar=None,
+               xticklabels=xticklabels, yticklabels=yticklabels)
     ax1.set_title('Rabbits')
-    sns.heatmap(foxes, square=True, vmin=0,vmax=3000, ax=ax2, cbar=None)
+    sns.heatmap(foxes, square=True, vmin=0, vmax=3000, ax=ax2, cbar=None,
+               xticklabels=xticklabels, yticklabels=yticklabels)
     ax2.set_title('Foxes')
     timestamp.set_text('t={0:.0f} days'.format(times[timestep]))
     plt.tight_layout()
     
-anim = animation.FuncAnimation(fig, animate, frames=frames, repeat_delay=2000, repeat=True)
+anim = animation.FuncAnimation(fig, animate, frames=frames, 
+                               repeat_delay=2000, repeat=True,
+                              interval=50,)
+anim.save('rabbits_and_foxes.mp4')
+True
+#anim
+
+
+# In[ ]:
+
+# Wondering if this is faster
+from matplotlib import animation
+import matplotlib
+matplotlib.rc('animation', html='html5')
+fig = plt.figure()
+frames = 240
+
+with sns.axes_style("white"):
+    fig = plt.figure()
+    ax1 = plt.subplot(1,2,1)
+    ax1.set_title('Rabbits')
+    ax2 = plt.subplot(1,2,2)
+    ax2.set_title('Foxes')
+    timestamp = fig.text(0.45,0.1,'timestamp')
+
+im1 = ax1.imshow(results[0,0], cmap=plt.get_cmap('viridis'), animated=True, vmin=0, vmax=500)
+im2 = ax2.imshow(results[0,1], cmap=plt.get_cmap('viridis'), animated=True, vmin=0, vmax=3000)
+plt.tight_layout()
+
+def animate(i):
+    timestep = i * len(times)//(frames)
+    im1.set_array(results[timestep,0])
+    im2.set_array(results[timestep,1])
+    timestamp.set_text('t={0:.0f} days'.format(times[timestep]))
+    return im1, im2, timestamp,
+    
+anim = animation.FuncAnimation(fig, animate, frames=frames, 
+                               repeat_delay=2000, repeat=True,
+                              interval=50, blit=True)
+anim.save('rabbits.mp4')
+True
 anim
 
 
-# In[14]:
+# In[ ]:
 
-get_ipython().magic('pinfo animation.FuncAnimation')
+import urllib
+import scipy.ndimage
+image_file = urllib.request.urlopen('http://images.all-free-download.com/images/graphiclarge/australian_maps_clip_art_15441.jpg')
+australia = scipy.ndimage.imread(image_file, mode='L')
+plt.imshow(australia)
+1-australia//255
 
 
 # In[ ]:
