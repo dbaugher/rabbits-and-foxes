@@ -61,17 +61,19 @@ plt.show()
 # # Reaction and diffusion
 # Now set it up for diffusion on a grid of farms.
 
-# In[3]:
+# In[15]:
 
-x_max = y_max = 9.0
-N = M = 50
+x_max = y_max = 100
+N = M = 100
 dx = x_max / (N-1)
 dy = y_max / (M-1)
 xgrid = np.linspace(0,x_max,N)
 ygrid = np.linspace(0,y_max,M)
 assert dx == xgrid[1]
 
-diffusivity_rabbits = diffusivity_foxes = 1e-3
+diffusivity_rabbits =  1e-3
+diffusivity_foxes = 1e-3
+
 
 concentrations = np.ones((2,N,M)) 
 concentrations += 0.5 * np.abs(np.random.randn(2,N,M))
@@ -99,7 +101,7 @@ plt.tight_layout()
 plt.show()
 
 
-# In[4]:
+# In[16]:
 
 # Some practice while I figure things out 
 concentrations_vector  = concentrations.reshape(-1)
@@ -143,7 +145,11 @@ print(rates)
 
 # And now the differential equation version
 
-# In[5]:
+# In[23]:
+
+get_ipython().magic('load_ext line_profiler')
+diffusivity = diffusivity_foxes
+assert diffusivity_rabbits==diffusivity
 
 def rates(concentrations_vector, time):
     """
@@ -158,25 +164,24 @@ def rates(concentrations_vector, time):
 
     rate_rabbits = (k1 * rabbits - k2 * rabbits * foxes)
     rate_foxes = (k3 * rabbits * foxes - k4 * foxes)
-    rate_rabbits[1:-1,:] += diffusivity_rabbits * d2cdx2[0] / (dx*dx)
-    rate_rabbits[:,1:-1] += diffusivity_rabbits * d2cdy2[0] / (dy*dy)
-    rate_foxes[1:-1,:] += diffusivity_foxes * d2cdx2[1] / (dx*dx)
-    rate_foxes[:,1:-1] += diffusivity_foxes * d2cdy2[1] / (dy*dy)
     rates = np.stack((rate_rabbits, rate_foxes))
+    
+    rates[:,1:-1,:] += diffusivity * d2cdx2 / (dx*dx)
+    rates[:,:,1:-1] += diffusivity * d2cdy2 / (dy*dy)
     return rates.reshape(-1)
 
 end_time = 4800
 concentrations_vector  = concentrations.reshape(-1)
 times = np.arange(0, end_time, 10)
 initial_conditions = concentrations_vector
-result = odeint(rates, initial_conditions, times)
+get_ipython().magic('lprun -f rates result = odeint(rates, initial_conditions, times)')
 
 print(result.shape)
 results = result.reshape(-1,2,N,M)
 print(results.shape)
 
 
-# In[6]:
+# In[24]:
 
 rabbits_origin = results[:,0,0,0]
 foxes_origin = results[:,1,0,0]
@@ -201,7 +206,7 @@ plt.tight_layout()
 plt.show()
 
 
-# In[7]:
+# In[25]:
 
 print('At end time t={} days'.format(end_time))
 rabbits = results[-1,0]
@@ -219,7 +224,7 @@ plt.tight_layout()
 plt.show()
 
 
-# In[8]:
+# In[26]:
 
 # Wondering if this is faster
 from matplotlib import animation
@@ -250,7 +255,7 @@ def animate(i):
 anim = animation.FuncAnimation(fig, animate, frames=frames, 
                                repeat_delay=2000, repeat=True,
                               interval=50, blit=True)
-anim.save('rabbits.mp4', bitrate=1500)
+anim.save('rabbits-and-foxes.mp4', bitrate=1500)
 True
 anim
 
