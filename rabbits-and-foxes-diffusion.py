@@ -71,8 +71,7 @@ xgrid = np.linspace(0,x_max,N)
 ygrid = np.linspace(0,y_max,M)
 assert dx == xgrid[1]
 
-diffusivity_rabbits = 1.0e-3
-diffusivity_foxes = 1.0e-3
+diffusivity_rabbits = diffusivity_foxes = 1e-3
 
 concentrations = np.ones((2,N,M)) 
 concentrations += 0.5 * np.abs(np.random.randn(2,N,M))
@@ -144,7 +143,7 @@ print(rates)
 
 # And now the differential equation version
 
-# In[26]:
+# In[5]:
 
 def rates(concentrations_vector, time):
     """
@@ -166,9 +165,9 @@ def rates(concentrations_vector, time):
     rates = np.stack((rate_rabbits, rate_foxes))
     return rates.reshape(-1)
 
-end_time = 4800.
+end_time = 4800
 concentrations_vector  = concentrations.reshape(-1)
-times = np.arange(0, end_time)
+times = np.arange(0, end_time, 10)
 initial_conditions = concentrations_vector
 result = odeint(rates, initial_conditions, times)
 
@@ -177,17 +176,23 @@ results = result.reshape(-1,2,N,M)
 print(results.shape)
 
 
-# In[27]:
+# In[6]:
 
 rabbits_origin = results[:,0,0,0]
 foxes_origin = results[:,1,0,0]
-plt.subplot(2,1,1)
+plt.subplot(3,1,1)
 plt.plot(times, rabbits_origin, label='rabbits')
 plt.plot(times, foxes_origin, label='foxes')
 plt.title("At origin (0,0)")
 plt.legend(loc="best")
 
-plt.subplot(2,1,2)
+plt.subplot(3,1,2)
+plt.plot(times, results[:,0,N//2,M//2], label='rabbits')
+plt.plot(times, results[:,1,N//2,M//2], label='foxes')
+plt.legend(loc="best") 
+plt.title("Near center({:.1f},{:.1f})".format(xgrid[N//2],ygrid[M//2]))
+
+plt.subplot(3,1,3)
 plt.plot(times, results[:,0,-1,-1], label='rabbits')
 plt.plot(times, results[:,1,-1,-1], label='foxes')
 plt.legend(loc="best") 
@@ -196,7 +201,7 @@ plt.tight_layout()
 plt.show()
 
 
-# In[28]:
+# In[7]:
 
 print('At end time t={} days'.format(end_time))
 rabbits = results[-1,0]
@@ -214,46 +219,14 @@ plt.tight_layout()
 plt.show()
 
 
-# In[ ]:
-
-from matplotlib import animation
-import matplotlib
-matplotlib.rc('animation', html='html5')
-fig = plt.figure()
-ax1 = plt.subplot(1,2,1)
-ax2 = plt.subplot(1,2,2)
-timestamp = fig.text(0.45,0.1,'timestamp')
-frames = 240
-
-def animate(i):
-    timestep = i * len(times)//(frames)
-    rabbits = results[timestep,0]
-    foxes = results[timestep,1]
-    sns.heatmap(rabbits, square=True, vmin=0, vmax=500, ax=ax1, cbar=None,
-               xticklabels=xticklabels, yticklabels=yticklabels)
-    ax1.set_title('Rabbits')
-    sns.heatmap(foxes, square=True, vmin=0, vmax=3000, ax=ax2, cbar=None,
-               xticklabels=xticklabels, yticklabels=yticklabels)
-    ax2.set_title('Foxes')
-    timestamp.set_text('t={0:.0f} days'.format(times[timestep]))
-    plt.tight_layout()
-    
-anim = animation.FuncAnimation(fig, animate, frames=frames, 
-                               repeat_delay=2000, repeat=True,
-                              interval=50,)
-anim.save('rabbits_and_foxes.mp4')
-True
-#anim
-
-
-# In[ ]:
+# In[8]:
 
 # Wondering if this is faster
 from matplotlib import animation
 import matplotlib
 matplotlib.rc('animation', html='html5')
 fig = plt.figure()
-frames = 240
+frames = 120
 
 with sns.axes_style("white"):
     fig = plt.figure()
@@ -272,17 +245,48 @@ def animate(i):
     im1.set_array(results[timestep,0])
     im2.set_array(results[timestep,1])
     timestamp.set_text('t={0:.0f} days'.format(times[timestep]))
-    return im1, im2, timestamp,
+    return im1, im2, 
     
 anim = animation.FuncAnimation(fig, animate, frames=frames, 
                                repeat_delay=2000, repeat=True,
                               interval=50, blit=True)
-anim.save('rabbits.mp4')
+anim.save('rabbits.mp4', bitrate=1500)
 True
 anim
 
 
-# In[ ]:
+# In[9]:
+
+from matplotlib import animation
+import matplotlib
+matplotlib.rc('animation', html='html5')
+fig = plt.figure()
+ax1 = plt.subplot(1,2,1)
+ax2 = plt.subplot(1,2,2)
+timestamp = fig.text(0.45,0.1,'timestamp')
+frames = 48
+
+def animate(i):
+    timestep = i * len(times)//(frames)
+    rabbits = results[timestep,0]
+    foxes = results[timestep,1]
+    sns.heatmap(rabbits, square=True, vmin=0, vmax=500, ax=ax1, cbar=None,
+               xticklabels=xticklabels, yticklabels=yticklabels)
+    ax1.set_title('Rabbits')
+    sns.heatmap(foxes, square=True, vmin=0, vmax=3000, ax=ax2, cbar=None,
+               xticklabels=xticklabels, yticklabels=yticklabels)
+    ax2.set_title('Foxes')
+    timestamp.set_text('t={0:.0f} days'.format(times[timestep]))
+    plt.tight_layout()
+
+## Commented out because this version is slow
+#anim = animation.FuncAnimation(fig, animate, frames=frames, 
+#                               repeat_delay=2000, repeat=True,
+#                              interval=50,)
+#anim.save('rabbits_and_foxes.mp4', bitrate=1500)
+
+
+# In[10]:
 
 import urllib
 import scipy.ndimage
@@ -290,6 +294,11 @@ image_file = urllib.request.urlopen('http://images.all-free-download.com/images/
 australia = scipy.ndimage.imread(image_file, mode='L')
 plt.imshow(australia)
 1-australia//255
+
+
+# In[ ]:
+
+
 
 
 # In[ ]:
