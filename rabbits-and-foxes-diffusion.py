@@ -61,28 +61,30 @@ plt.show()
 # # Reaction and diffusion
 # Now set it up for diffusion on a grid of farms.
 
-# In[15]:
+# In[76]:
 
 x_max = y_max = 100
-N = M = 100
+N = M = 10
 dx = x_max / (N-1)
 dy = y_max / (M-1)
 xgrid = np.linspace(0,x_max,N)
 ygrid = np.linspace(0,y_max,M)
 assert dx == xgrid[1]
 
-diffusivity_rabbits =  1e-3
+diffusivity_rabbits = 1e-3
 diffusivity_foxes = 1e-3
 
 
 concentrations = np.ones((2,N,M)) 
-concentrations += 0.5 * np.abs(np.random.randn(2,N,M))
+#concentrations += 0.5 * np.abs(np.random.randn(2,N,M))
 concentrations[0] *= 400
 concentrations[1] *= 200
 concentrations[1,N//2:,M//2:] *= 2.0 # double foxes in top corner 
 concentrations[0,3,3] = 0 # a dead spot of rabbits
 concentrations[1,7,7] = 0 # a dead spot of foxes
 concentrations[0,-1,-5] = 800 # a load of rabbits near one corner
+concentrations[0,-1,-1] = 800 # a load of rabbits in one corner
+concentrations[0,0,0] = 0 # a dead spot of rabbits at the origin
 
 rabbits = concentrations[0]
 foxes = concentrations[1]
@@ -101,7 +103,7 @@ plt.tight_layout()
 plt.show()
 
 
-# In[16]:
+# In[77]:
 
 # Some practice while I figure things out 
 concentrations_vector  = concentrations.reshape(-1)
@@ -113,14 +115,23 @@ foxes = concentrations[1]
 d2cdx2 = np.diff(concentrations, n=2, axis=1)
 d2cdy2 = np.diff(concentrations, n=2, axis=2)
 
-rate_rabbits = (k1 * rabbits - k2 * rabbits * foxes)
-rate_foxes = (k3 * rabbits * foxes - k4 * foxes)
+rate_rabbits = (k1 * rabbits - k2 * rabbits * foxes) *0
+rate_foxes = (k3 * rabbits * foxes - k4 * foxes) *0
 
 rate_rabbits[1:-1,:] += diffusivity_rabbits * d2cdx2[0] / (dx*dx)
 rate_rabbits[:,1:-1] += diffusivity_rabbits * d2cdy2[0] / (dy*dy)
+rate_rabbits[-1,:] += diffusivity_rabbits * (rabbits[-2,:] - rabbits[-1,:] ) / (dx*dx)
+rate_rabbits[:,-1] += diffusivity_rabbits * (rabbits[:,-2] - rabbits[:,-1] ) / (dy*dy)
+rate_rabbits[0,:] += diffusivity_rabbits * (rabbits[1,:] - rabbits[0,:] ) / (dx*dx)
+rate_rabbits[:,0] += diffusivity_rabbits * (rabbits[:,1] - rabbits[:,0] ) / (dy*dy)
 
 rate_foxes[1:-1,:] += diffusivity_foxes * d2cdx2[1] / (dx*dx)
 rate_foxes[:,1:-1] += diffusivity_foxes * d2cdy2[1] / (dy*dy)
+rate_foxes[-1,:] += diffusivity_foxes * (foxes[-2,:] - foxes[-1,:] ) / (dx*dx)
+rate_foxes[:,-1] += diffusivity_foxes * (foxes[:,-2] - foxes[:,-1] ) / (dy*dy)
+rate_foxes[0,:] += diffusivity_foxes * (foxes[1,:] - foxes[0,:] ) / (dx*dx)
+rate_foxes[:,0] += diffusivity_foxes * (foxes[:,1] - foxes[:,0] ) / (dy*dy)
+
 
 plt.subplot(2,2,1)
 sns.heatmap(rabbits, square=True)
@@ -143,9 +154,15 @@ rates = np.stack((rate_rabbits, rate_foxes))
 print(rates)
 
 
+# In[79]:
+
+sns.heatmap(rabbits, square=True)
+diffusivity * (rabbits[-2,:] - rabbits[-1,:] ) / dx
+
+
 # And now the differential equation version
 
-# In[23]:
+# In[80]:
 
 get_ipython().magic('load_ext line_profiler')
 diffusivity = diffusivity_foxes
@@ -166,8 +183,15 @@ def rates(concentrations_vector, time):
     rate_foxes = (k3 * rabbits * foxes - k4 * foxes)
     rates = np.stack((rate_rabbits, rate_foxes))
     
+    # Interior points
     rates[:,1:-1,:] += diffusivity * d2cdx2 / (dx*dx)
     rates[:,:,1:-1] += diffusivity * d2cdy2 / (dy*dy)
+    # Boundaries
+    rates[:, -1 ,  : ] += diffusivity * (concentrations[:,-2, :] - concentrations[:,-1, :] ) / (dx*dx)
+    rates[:,  : , -1 ] += diffusivity * (concentrations[:, :,-2] - concentrations[:, :,-1] ) / (dy*dy)
+    rates[:,  0 ,  : ] += diffusivity * (concentrations[:, 1, :] - concentrations[:, 0, :] ) / (dx*dx)
+    rates[:,  : ,  0 ] += diffusivity * (concentrations[:, :, 1] - concentrations[:, :, 0] ) / (dy*dy)
+
     return rates.reshape(-1)
 
 end_time = 4800
@@ -181,7 +205,7 @@ results = result.reshape(-1,2,N,M)
 print(results.shape)
 
 
-# In[24]:
+# In[81]:
 
 rabbits_origin = results[:,0,0,0]
 foxes_origin = results[:,1,0,0]
@@ -206,7 +230,7 @@ plt.tight_layout()
 plt.show()
 
 
-# In[25]:
+# In[82]:
 
 print('At end time t={} days'.format(end_time))
 rabbits = results[-1,0]
@@ -224,7 +248,7 @@ plt.tight_layout()
 plt.show()
 
 
-# In[26]:
+# In[85]:
 
 # Wondering if this is faster
 from matplotlib import animation
@@ -260,7 +284,7 @@ True
 anim
 
 
-# In[9]:
+# In[84]:
 
 from matplotlib import animation
 import matplotlib
@@ -269,7 +293,7 @@ fig = plt.figure()
 ax1 = plt.subplot(1,2,1)
 ax2 = plt.subplot(1,2,2)
 timestamp = fig.text(0.45,0.1,'timestamp')
-frames = 48
+frames = 120
 
 def animate(i):
     timestep = i * len(times)//(frames)
@@ -285,10 +309,11 @@ def animate(i):
     plt.tight_layout()
 
 ## Commented out because this version is slow
-#anim = animation.FuncAnimation(fig, animate, frames=frames, 
-#                               repeat_delay=2000, repeat=True,
-#                              interval=50,)
+anim = animation.FuncAnimation(fig, animate, frames=frames, 
+                               repeat_delay=2000, repeat=True,
+                              interval=50,)
 #anim.save('rabbits_and_foxes.mp4', bitrate=1500)
+anim
 
 
 # In[10]:
